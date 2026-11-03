@@ -1,6 +1,6 @@
 import datetime
 from airflow.sdk import dag, task
-from library import scanner
+from library import scanner, converter
 
 @dag(start_date=datetime.datetime(2026,11,1), 
      schedule="@hourly", 
@@ -12,12 +12,14 @@ def paper_pipeline():
         return scanner.find_new_pdf()
 
     @task
-    def convert_pdf_markdown():
-        return ...
+    def convert_pdf_markdown(pdf_path: str) -> dict:
+        return converter.convert_pdf_markdown(pdf_path)
 
 
 
     pdfs = scan_new_pdf()
+    docs = convert_pdf_markdown.expand(pdf_path=pdfs)
+
 
 
 paper_pipeline()

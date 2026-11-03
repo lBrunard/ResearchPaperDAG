@@ -21,14 +21,5 @@ uv pip install -r requirements.txt
 
 # 4. Dossiers et fichier de config local
 mkdir -p ResearchLibrary/papers ResearchLibrary/output data/markdown
-[ -f .env ] || cp .env.example .env
 
-# 5. Modèle LLM local
-set -a; source .env; set +a
-if command -v ollama >/dev/null; then
-    ollama pull "${OLLAMA_MODEL:-llama3.2}"
-else
-    echo "⚠️  Ollama n'est pas installé : https://ollama.com (puis : ollama pull ${OLLAMA_MODEL:-llama3.2})"
-fi
-
-echo "✅ Setup terminé. Complète .env si besoin, puis lance ./start.sh"
+echo "✅ Setup terminé. Lance ./start.sh"
