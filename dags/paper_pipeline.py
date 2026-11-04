@@ -1,7 +1,7 @@
 import datetime
 
 from airflow.sdk import TriggerRule, dag, task
-from library import scanner, converter, llm, database, html_generator
+from library import scanner, converter, llm, database, html_generator, discord_notification
 
 
 @dag(
@@ -25,7 +25,7 @@ def paper_pipeline():
         return llm.extract_metadata(doc)
 
     @task
-    def save_to_sqlite(meta: dict):
+    def save_to_sqlite(meta: dict) -> dict:
         database.save_paper(
             filename=meta["filename"],
             summary=meta["summary"],
@@ -33,10 +33,16 @@ def paper_pipeline():
             keywords=meta["keywords"],
             category=meta["category"],
         )
+        # Pass only this newly processed paper to the notification task.
+        return meta
 
     @task(trigger_rule=TriggerRule.NONE_FAILED)
     def generate_html():
         return html_generator.generate_library_html()
+
+    @task
+    def notify_discord(meta: dict) -> None:
+        discord_notification.send_paper_notification(meta)
 
     pdfs = scan_new_pdf()
     docs = convert_pdf_markdown.expand(pdf_path=pdfs)
@@ -45,7 +51,13 @@ def paper_pipeline():
 
     # Only one task regenerates the full HTML page, after ALL mapped inserts.
     # NONE_FAILED also lets it run when the scan found no new PDFs (empty map).
-    saved_papers >> generate_html()
+    html_result = generate_html()
+    saved_papers >> html_result
+
+    # A notification is mapped for each saved paper, but must wait for the
+    # single HTML regeneration task to succeed.
+    notifications = notify_discord.expand(meta=saved_papers)
+    html_result >> notifications
 
 
 paper_pipeline()

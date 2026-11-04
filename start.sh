@@ -6,6 +6,11 @@ cd "$(dirname "$0")"
 [ -d .venv ] || { echo "❌ Lance d'abord ./setup.sh"; exit 1; }
 source .venv/bin/activate
 
+if [ -f .env ]; then
+    set -a
+    source .env
+    set +a
+fi
 
 export AIRFLOW_HOME="$(pwd)/airflow_home"
 export AIRFLOW__CORE__DAGS_FOLDER="$(pwd)/dags"

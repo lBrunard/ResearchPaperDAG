@@ -99,3 +99,74 @@ The original project uses `setup.sh`, `requirements.txt`, and `uv pip`, **not** 
 Keep `.venv/`, `.env`, `airflow_home/`, `data/` and the local `ResearchLibrary/` out of Git. In particular, `airflow_home/` contains generated local credentials. Review the existing `.gitignore` before pushing.
 
 The scheduled DAG runs hourly. Because it dynamically maps over newly detected PDFs, the new single `generate_html` task uses `TriggerRule.NONE_FAILED`: it runs after all successful database saves and also when there are no new PDFs; if any upstream mapped save fails, it does not regenerate the page.
+
+## Discord webhook integration — ResearchPaperDAG
+
+This update assumes the earlier HTML version of the DAG is working. It adds a
+notification for **each new PDF that has been successfully saved and included
+in the regenerated HTML library**.
+
+# 1. Create the Discord webhook
+
+In a Discord server where you have permission to manage webhooks, choose the
+channel, then open **Edit Channel → Integrations → Webhooks → New Webhook**.
+Copy its webhook URL. Treat this URL like a password.
+
+# 2. Configure the local environment
+
+In the root of the repository, add a line to your **local, git-ignored** `.env`:
+
+```dotenv
+DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/YOUR_ID/YOUR_TOKEN
+```
+
+Your `start.sh` must load the `.env` **before** it starts Airflow. Immediately
+after its existing `cd "$(dirname "$0")"` line, add:
+
+```bash
+if [ -f .env ]; then
+    set -a
+    source .env
+    set +a
+fi
+```
+
+Keep the existing Airflow exports below these lines. In case the `library`
+package import issue returns, also ensure `start.sh` has:
+
+```bash
+export PYTHONPATH="$PWD/dags${PYTHONPATH:+:$PYTHONPATH}"
+```
+
+`start.sh` sources a trusted local file, so `.env` must contain valid shell-style
+`KEY=value` assignments (quotes around any values with spaces).
+
+# 3. Verify locally
+
+From `~/ResearchPaperDAG`:
+
+```bash
+PYTHONPATH="$PWD/dags" .venv/bin/python -m unittest discover -s tests -p 'test_discord_notification.py' -v
+```
+
+Stop any existing Airflow instance and restart:
+
+```bash
+bash start.sh
+```
+
+Use a second terminal to inspect any DAG import errors:
+
+```bash
+export AIRFLOW_HOME="$PWD/airflow_home"
+export AIRFLOW__CORE__DAGS_FOLDER="$PWD/dags"
+export PYTHONPATH="$PWD/dags${PYTHONPATH:+:$PYTHONPATH}"
+.venv/bin/airflow dags list-import-errors --local
+```
+
+Add a **new PDF with a new filename** to `ResearchLibrary/papers/`, then trigger
+`paper_pipeline` in Airflow. It should save metadata, regenerate `index.html`,
+and send a Discord message. Then trigger the DAG again without adding any PDF:
+`notify_discord` should be skipped, so there is no duplicate message.
+
+
