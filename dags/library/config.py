@@ -9,6 +9,6 @@ OUTPUT_DIR      = LIBRARY_DIR / "output"
 DB_PATH         = PROJECT_DIR / "data" / "papers.db"
 MARKDOWN_DIR    = PROJECT_DIR / "data" / "markdown"
 
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:7b")
+OLLAMA_MODEL        = os.getenv("OLLAMA_MODEL", "qwen2.5:7b")
 OLLAMA_BASE_URL     = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1")
 DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL", "")

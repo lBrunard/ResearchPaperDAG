@@ -1,5 +1,4 @@
 """Run with: python -m unittest discover -s tests -v"""
-import os
 from pathlib import Path
 import sys
 from tempfile import TemporaryDirectory
@@ -7,7 +6,7 @@ import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "dags"))
 
-from library import config, database, html_generator
+from library import database, html_generator
 
 
 class HtmlGeneratorTests(unittest.TestCase):

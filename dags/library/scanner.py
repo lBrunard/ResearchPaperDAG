@@ -1,5 +1,4 @@
 from library.database import get_processed_filenames
-from pathlib import Path
 from library.config import PAPERS_DIR
 
 def find_new_pdf():

@@ -6,7 +6,7 @@ cd "$(dirname "$0")"
 AIRFLOW_VERSION="3.3.2"   # même version pour tout le groupe
 PYTHON_VERSION="3.13"
 
-command -v uv >/dev/null || { echo "❌ uv est requis : brew install uv"; exit 1; }
+command -v uv >/dev/null || { echo "Project require uv"; exit 1; }
 
 # 1. Environnement Python (uv télécharge Python si besoin)
 [ -d .venv ] || uv venv .venv --python "$PYTHON_VERSION"
@@ -22,4 +22,4 @@ uv pip install -r requirements.txt
 # 4. Dossiers et fichier de config local
 mkdir -p ResearchLibrary/papers ResearchLibrary/output data/markdown
 
-echo "✅ Setup terminé. Lance ./start.sh"
+echo "Setup done, launch:  ./start.sh"

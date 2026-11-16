@@ -9,8 +9,9 @@ Local Airflow pipeline for a searchable research-paper library (INFO-H420, Assig
 3. `extract_metadata` asks a locally served Ollama model for JSON metadata.
 4. `save_to_sqlite` inserts the metadata into `data/papers.db`.
 5. `generate_html` **regenerates `ResearchLibrary/output/index.html`** from every record in the database.
+6. `notify_discord` sends one Discord message per newly saved paper, once the HTML has been regenerated.
 
-The HTML includes a title, summary, keywords, category, links to original PDFs, text search, and category filtering. Discord notifications are not implemented in this version.
+The HTML includes a title, summary, keywords, category, links to original PDFs, text search, and category filtering.
 
 ## Folder layout
 
@@ -22,9 +23,13 @@ ResearchPaperDAG/
 │       ├── config.py
 │       ├── converter.py
 │       ├── database.py
+│       ├── discord_notification.py
 │       ├── html_generator.py
 │       ├── llm.py
 │       └── scanner.py
+├── tests/
+│   ├── test_discord_notification.py
+│   └── test_html_generator.py
 ├── ResearchLibrary/
 │   ├── papers/            # Local test PDF files; can point to Drive sync
 │   └── output/
@@ -47,18 +52,18 @@ bash setup.sh
 
 This script creates `.venv` using Python 3.13 and installs Airflow 3.3.2 and the packages listed in `requirements.txt`.
 
-Start Ollama separately if needed, and ensure the configured model exists:
-
-```bash
-ollama pull qwen2.5:7b
-# If it is not already running as a service:
-ollama serve
-```
-
-Then in another terminal:
+Then start the project:
 
 ```bash
 bash start.sh
+```
+
+`start.sh` starts the Ollama server in the background if it is not already running, then launches Airflow.
+
+The first time, download the configured model from another terminal (the Ollama server must be running):
+
+```bash
+ollama pull qwen2.5:7b
 ```
 
 Open <http://localhost:8080> and find `paper_pipeline` on the **DAGs** tab. The generated Airflow login password is stored locally under `airflow_home/` (do not share it).
@@ -100,53 +105,34 @@ Keep `.venv/`, `.env`, `airflow_home/`, `data/` and the local `ResearchLibrary/`
 
 The scheduled DAG runs hourly. Because it dynamically maps over newly detected PDFs, the new single `generate_html` task uses `TriggerRule.NONE_FAILED`: it runs after all successful database saves and also when there are no new PDFs; if any upstream mapped save fails, it does not regenerate the page.
 
-## Discord webhook integration — ResearchPaperDAG
+## Discord notifications
 
-This update assumes the earlier HTML version of the DAG is working. It adds a
-notification for **each new PDF that has been successfully saved and included
-in the regenerated HTML library**.
+After the HTML library is regenerated, the DAG sends a Discord message for
+**each new PDF that has been successfully saved**.
 
-# 1. Create the Discord webhook
+### 1. Create the Discord webhook
 
 In a Discord server where you have permission to manage webhooks, choose the
 channel, then open **Edit Channel → Integrations → Webhooks → New Webhook**.
 Copy its webhook URL. Treat this URL like a password.
 
-# 2. Configure the local environment
+### 2. Configure the local environment
 
-In the root of the repository, add a line to your **local, git-ignored** `.env`:
+Add the webhook to a **local, git-ignored** `.env` file at the root of the
+project. `start.sh` loads it automatically before starting Airflow:
 
 ```dotenv
 DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/YOUR_ID/YOUR_TOKEN
 ```
 
-Your `start.sh` must load the `.env` **before** it starts Airflow. Immediately
-after its existing `cd "$(dirname "$0")"` line, add:
+`.env` must contain shell-style `KEY=value` assignments (quote values with spaces).
+
+### 3. Verify locally
+
+From the root of the project, run the unit tests:
 
 ```bash
-if [ -f .env ]; then
-    set -a
-    source .env
-    set +a
-fi
-```
-
-Keep the existing Airflow exports below these lines. In case the `library`
-package import issue returns, also ensure `start.sh` has:
-
-```bash
-export PYTHONPATH="$PWD/dags${PYTHONPATH:+:$PYTHONPATH}"
-```
-
-`start.sh` sources a trusted local file, so `.env` must contain valid shell-style
-`KEY=value` assignments (quotes around any values with spaces).
-
-# 3. Verify locally
-
-From `~/ResearchPaperDAG`:
-
-```bash
-PYTHONPATH="$PWD/dags" .venv/bin/python -m unittest discover -s tests -p 'test_discord_notification.py' -v
+PYTHONPATH="$PWD/dags" .venv/bin/python -m unittest discover -s tests -p 'test_*.py' -v
 ```
 
 Stop any existing Airflow instance and restart:
@@ -168,5 +154,3 @@ Add a **new PDF with a new filename** to `ResearchLibrary/papers/`, then trigger
 `paper_pipeline` in Airflow. It should save metadata, regenerate `index.html`,
 and send a Discord message. Then trigger the DAG again without adding any PDF:
 `notify_discord` should be skipped, so there is no duplicate message.
-
-

@@ -3,7 +3,7 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-[ -d .venv ] || { echo "❌ Lance d'abord ./setup.sh"; exit 1; }
+[ -d .venv ] || { echo "Start setup.sh before"; exit 1; }
 source .venv/bin/activate
 
 if [ -f .env ]; then
@@ -20,6 +20,16 @@ export AIRFLOW__CORE__LOAD_EXAMPLES=False
 export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
 export NO_PROXY="*"
 
+# Démarre Ollama s'il ne tourne pas déjà (app, service ou autre terminal)
+if ! curl -s -o /dev/null http://localhost:11434; then
+    command -v ollama >/dev/null || { echo "Ollama and model required"; exit 1; }
+    echo "Ollama starting"
+    ollama serve > /dev/null 2>&1 &
+    for _ in {1..10}; do
+        curl -s -o /dev/null http://localhost:11434 && break
+        sleep 1
+    done
+fi
 
-echo "🔑 Mot de passe admin : airflow_home/simple_auth_manager_passwords.json.generated"
+echo "Admin password : airflow_home/simple_auth_manager_passwords.json.generated"
 airflow standalone

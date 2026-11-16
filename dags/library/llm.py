@@ -1,5 +1,4 @@
 import json
-from pathlib import Path
 
 from openai import OpenAI
 
@@ -19,7 +18,10 @@ Return ONLY a JSON object with exactly these keys:
 - "title": the title of the paper (string)
 - "summary": a short summary of 3 to 4 sentences (string)
 - "keywords": 3 to 6 keywords (list of strings)
-- "category": Categorize the paper with max 1 categories in the field of the research (string)"""
+- "category": exactly one of {", ".join(CATEGORIES)} (string)
+
+Paper:
+"""
 
 
 def extract_metadata(doc: dict) -> dict:
@@ -28,7 +30,7 @@ def extract_metadata(doc: dict) -> dict:
     with open(doc["md_path"], encoding="utf-8") as f:
         text = f.read()[:MAX_CHARS]
 
-    for attemps in range(MAX_TRIES): 
+    for attempt in range(MAX_TRIES):
         response = client.chat.completions.create(
             model=OLLAMA_MODEL,
             response_format={"type": "json_object"},
@@ -46,6 +48,6 @@ def extract_metadata(doc: dict) -> dict:
 
         except(json.JSONDecodeError, KeyError):
             pass
-        print(f"Attempt {attemps + 1} failed, retrying...")
+        print(f"Attempt {attempt + 1} failed, retrying...")
 
-    raise ValueError(f"LLM failed twice for {doc['filename']}")
+    raise ValueError(f"LLM failed {MAX_TRIES} times for {doc['filename']}")
